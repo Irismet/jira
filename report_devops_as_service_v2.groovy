@@ -46,9 +46,13 @@ public ArrayList<Issue> selectLineResolvedIssues(String lineNumber){
     def searchProvider = ComponentAccessor.getComponent(SearchService.class)
     def issueManager = ComponentAccessor.getIssueManager()
     def user = ComponentAccessor.userManager.getUserByName("jiradmin")
-    log.info user?.displayName
-    log.info user?.active
-    def query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\"")
+    def query
+    if (lineNumber == "2"){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status was not in \"3 линия\" and status = Решен")
+    }
+    else {
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status = Решен")
+    }
     log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
 
@@ -65,8 +69,6 @@ public ArrayList<Issue> selectLineNonResolvedIssues(String lineNumber){
     def searchProvider = ComponentAccessor.getComponent(SearchService.class)
     def issueManager = ComponentAccessor.getIssueManager()
     def user = ComponentAccessor.userManager.getUserByName("jiradmin")
-    log.info user?.displayName
-    log.info user?.active
     def query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\"")
     log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -121,6 +123,8 @@ def index_wait_support
 def index_l2
 def index_l3
 def tmp
+ArrayList assignee_list = []
+Map result_map_assignee_issues = [:]
 TimeDuration duration_l2
 TimeDuration duration_l3
 DurationFormatUtils df = new DurationFormatUtils()
@@ -141,6 +145,19 @@ def getTimeResolution(Issue issue, CustomField time_resolution){
     }
 }
 
+def getCountResolvedIssuesByAssignee(String assignee, String fromStatusName, String toStatusName){
+    def jqlQueryParser = ComponentAccessor.getComponent(JqlQueryParser)
+    def searchProvider = ComponentAccessor.getComponent(SearchService.class)
+    def issueManager = ComponentAccessor.getIssueManager()
+    def user = ComponentAccessor.userManager.getUserByName("jiradmin")
+    def query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee}")
+    log.info query.getQueryString()
+    def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
+
+    log.info ("total not resolved issues ${results.total}")
+    return results.total
+}
+
 /*log.info getTimeResolution(issue, time_resolved_l2)
 log.info getTimeResolution(issue, time_resolved_l3)
 */
@@ -148,14 +165,26 @@ log.info getTimeResolution(issue, time_resolved_l3)
 for (Issue l2issue: line2_resolved){
     log.info "\n \t \t \t \t \t \t \t loop L2 - ${l2issue.key}"
     tmp = getTimeResolution(l2issue, time_resolved_l2)
-    log.info tmp
     common_duration_l2 << tmp
+    if (l2issue?.assignee){
+    //    log.info l2issue.getAssignee().getName()
+        assignee_list.add(l2issue.getAssignee().getName())
+    }
 }
 
+for (f in assignee_list.unique()){
+    //log.info "assignee = " + f
+    def count = getCountResolvedIssuesByAssignee(f.toString(), "2 линия", "Решен")
+    //log.info "count = " + count
+    def assignee_displayName = ComponentAccessor.userManager.getUserByName(f.toString())
+    result_map_assignee_issues.putAt(assignee_displayName.getDisplayName(), count.toString())
+}
+
+log.info "result_map_assignee_issues = " + result_map_assignee_issues
 for (Issue l3issue: line3_resolved){
     log.info "\n \t \t \t \t \t \t \t loop L3 - ${l3issue.key}"
     tmp = getTimeResolution(l3issue, time_resolved_l3)
-    log.info tmp
+    //log.info tmp
     common_duration_l3 << tmp
 }
 
@@ -225,12 +254,15 @@ def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
             <tr>
                 <td>ФИО инженера Prime Cloud</td>
                 <td>Количество</td>
-            </tr>
-            <tr>
-                <td>Иванов Иван</td>
-                <td>5</td>
-            </tr>
-            </tbody>
+            </tr>"""
+            for (f in result_map_assignee_issues){
+                log.info "map value = " + f.getKey() + f.getValue()
+            body += """<tr>
+                <td>${f.getKey()}</td>
+                <td>${f.getValue()}</td>
+            </tr>"""
+            }
+            body += """</tbody>
             </table>
 
             </br>
