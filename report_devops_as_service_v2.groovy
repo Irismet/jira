@@ -253,32 +253,32 @@ def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
             </thead>
             <tbody>
             <tr>
-                <td>Всего запросов DevOps as Service</td>
+                <td><b>Всего запросов DevOps as Service</b></td>
                 <td>${totalIssues.size()}</td>
             </tr>
             <tr>
-                <td>В работе на L2</td>
+                <td><b>В работе на L2</b></td>
                 <td>${line2_inprogress.size()}</td>
             </tr>
             <tr>
-                <td>Решено на L2</td>
+                <td><b>Решено на L2</b></td>
                 <td>${line2_resolved.size()}</td>
             </tr>
              <tr>
-                <td>В работе на L3</td>
+                <td><b>В работе на L3</b></td>
                 <td>${line3_inprogress.size()}</td>
             </tr>
             <tr>
-                <td>Решено на L3</td>
+                <td><b>Решено на L3</b></td>
                 <td>${line3_resolved.size()}</td>
             </tr>
             <tr>
-                <td>Общее время решенных на L2</td>
-                <td>${result_duration_l2}</td>
+                <td><b>Общее время решенных на L2</b></td>
+                <td>${result_duration_l2} (HH:MM:SS)</td>
             </tr>
             <tr>
-                <td>Общее время решенных на L3</td>
-                <td>${result_duration_l3}</td>
+                <td><b>Общее время решенных на L3</b></td>
+                <td>${result_duration_l3} (HH:MM:SS)</td>
             </tr>
             </tbody>
             </table>
@@ -293,8 +293,8 @@ def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
             </thead>
             <tbody>
             <tr>
-                <td>ФИО инженера Prime Cloud</td>
-                <td>Количество</td>
+                <td><b>ФИО инженера Prime Cloud</b></td>
+                <td><b>Количество</b></td>
             </tr>"""
             for (f in result_map_assignee_issues){
                 log.info "map value = " + f.getKey() + f.getValue()
@@ -316,16 +316,16 @@ def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
             </thead>
             <tbody>
             <tr>
-                <td>Наименование проектной команды</td>
-                <td>Количество</td>
-                <td>Время решения</td>
+                <td><b>Наименование проектной команды</b></td>
+                <td><b>Количество</b></td>
+                <td><b>Время решения</b></td>
             </tr>"""
             for (f in result_map_project_teams_issues){
                 log.info "map value = " + f.getKey() + f.getValue()
             body += """<tr>
                 <td>${f.getKey()}</td>
                 <td>${f.getValue()}</td>
-                <td>${getTimeResolutionByProjectTeam(f.getKey(), time_resolved_l3)}</td>
+                <td>${getTimeResolutionByProjectTeam(f.getKey(), time_resolved_l3)} (HH:MM:SS)</td>
             </tr>"""
             }
             body += """</tbody>
