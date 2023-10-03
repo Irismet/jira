@@ -113,7 +113,7 @@ TimeDuration duration_l3
 DurationFormatUtils df = new DurationFormatUtils()
 def common_duration_l2 = []
 def common_duration_l3 = []
-def time_resolved_l2 = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("DevOps as Service. Время решения")
+def time_resolved_l2 = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("DevOps as Service. Время решения L2")
 def time_resolved_l3 = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("DevOps as Service. Время решения L3")
 def cf_project_teams = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("Проектная команда")
 
@@ -332,4 +332,4 @@ def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
             </table>
            """
 
-//mailSend("Test report", body, "e.chistyakov@p-s.kz")
+mailSend("Test report", body, "e.chistyakov@p-s.kz")
