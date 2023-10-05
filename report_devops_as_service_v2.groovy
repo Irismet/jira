@@ -1,3 +1,4 @@
+/*Подключение необходимых библиотек*/
 import com.atlassian.jira.issue.link.IssueLink
 import com.atlassian.mail.Email
 import com.atlassian.mail.server.SMTPMailServer
@@ -22,73 +23,14 @@ import groovy.time.*
 import org.apache.commons.lang3.time.DurationFormatUtils as DurationFormatUtils
 import groovy.transform.Field
 
-    @Field def jqlQueryParser = ComponentAccessor.getComponent(JqlQueryParser)
-    @Field def searchProvider = ComponentAccessor.getComponent(SearchService.class)
-    @Field def issueManager = ComponentAccessor.getIssueManager()
-    @Field def user = ComponentAccessor.userManager.getUserByName("jiradmin")
-    @Field def query
+/*Объявление общих глобальных переменных*/
+    @Field def jqlQueryParser = ComponentAccessor.getComponent(JqlQueryParser) //для JQL запросов
+    @Field def searchProvider = ComponentAccessor.getComponent(SearchService.class) //для вызова поиска по JQL запросу 
+    @Field def issueManager = ComponentAccessor.getIssueManager() //для получения объекта заявки
+    @Field def user = ComponentAccessor.userManager.getUserByName("jiradmin") //для получения пользователя с правами на просмотр всех заявок
+    @Field def query //переменная - строка с JQL запросом
 
-public ArrayList<Issue> selectTotalIssues(){
-    ArrayList<Issue> totalIssueList = new ArrayList()
-    query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\"")
-    log.info query.getQueryString()
-    def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
-
-    log.info ("total all issues ${results.total}")
-    for (Issue reqIssue: results.getResults()){
-        totalIssueList.add(reqIssue)
-    }
-    return totalIssueList
-}
-
-public ArrayList<Issue> selectLineResolvedIssues(String lineNumber){
-    ArrayList<Issue> issueList = new ArrayList()
-    if (lineNumber == "2"){
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status was not in \"3 линия\" and status = Решен")
-    }
-    else {
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status = Решен")
-    }
-    log.info query.getQueryString()
-    def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
-
-    log.info ("total L${lineNumber} issues ${results.total}")
-    for (Issue reqIssue: results.getResults()){
-        issueList.add(reqIssue)
-    }
-    return issueList
-}
-
-public ArrayList<Issue> selectLineNonResolvedIssues(String lineNumber){
-    ArrayList<Issue> issueList = new ArrayList()
-    query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\"")
-    log.info query.getQueryString()
-    def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
-
-    log.info ("total not resolved issues ${results.total}")
-    for (Issue reqIssue: results.getResults()){
-        issueList.add(reqIssue)
-    }
-    return issueList
-}
-
-def mailSend(String subject, String body, String receipents){
-    SMTPMailServer mailServer = ComponentAccessor.getMailServerManager().getDefaultSMTPMailServer();
-    if (mailServer) {
-    Email email = new Email(receipents);
-    email.setSubject(subject);
-    email.setBody(body);
-    email.setMimeType("text/html")
-    ClassLoader threadClassLoader = Thread.currentThread().getContextClassLoader()
-    Thread.currentThread().setContextClassLoader(SMTPMailServer.class.classLoader)
-    mailServer.send(email)
-    Thread.currentThread().setContextClassLoader(threadClassLoader)
-    } 
-    else {
-        log.info "problem with sending email" // Problem getting the mail server from JIRA configuration, log this error
-    }
-}
-
+/*Объявление переменных*/
 def totalIssues = selectTotalIssues()
 def line2_inprogress = selectLineNonResolvedIssues("2")
 def line2_resolved = selectLineResolvedIssues("2")
@@ -113,38 +55,106 @@ TimeDuration duration_l3
 DurationFormatUtils df = new DurationFormatUtils()
 def common_duration_l2 = []
 def common_duration_l3 = []
+//def time_resolved_l2 = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("DevOps as Service. Время решения")
 def time_resolved_l2 = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("DevOps as Service. Время решения L2")
 def time_resolved_l3 = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("DevOps as Service. Время решения L3")
 def cf_project_teams = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("Проектная команда")
 
+/*функция для отбора общего количества задач с типом - DevOps as Service*/
+public ArrayList<Issue> selectTotalIssues(){
+    ArrayList<Issue> totalIssueList = new ArrayList()
+    query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\"")
+    def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
+    //log.info ("total all issues ${results.total}")
+    for (Issue reqIssue: results.getResults()){
+        totalIssueList.add(reqIssue)
+    }
+    return totalIssueList
+}
+
+/*функция для отбора общего количества решенных задач на указанной линии поддержки, с типом - DevOps as Service. Принимает номер линии поддержки - 2 или 3*/
+public ArrayList<Issue> selectLineResolvedIssues(String lineNumber){
+    ArrayList<Issue> issueList = new ArrayList()
+    if (lineNumber == "2"){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status was not in \"3 линия\" and status = Решен")
+    }
+    else if (lineNumber == "3"){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status = Решен")
+    }
+    else {
+        throw new Exception("Передан неверный параметр, ожидалось 2 или 3")
+    }
+    //log.info query.getQueryString()
+    def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
+
+    //log.info ("total L${lineNumber} issues ${results.total}")
+    for (Issue reqIssue: results.getResults()){
+        issueList.add(reqIssue)
+    }
+    return issueList
+}
+
+/*функция для отбора общего количества нерешенных задач на указанной линии поддержки, с типом - DevOps as Service. Принимает номер линии поддержки - 2 или 3*/
+public ArrayList<Issue> selectLineNonResolvedIssues(String lineNumber){
+    ArrayList<Issue> issueList = new ArrayList()
+    query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\"")
+    //log.info query.getQueryString()
+    def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
+
+    //log.info ("total not resolved issues ${results.total}")
+    for (Issue reqIssue: results.getResults()){
+        issueList.add(reqIssue)
+    }
+    return issueList
+}
+
+/*функция для отправки письма с отчетом по почте. Принимает тему письма, тело письма, список емайл адресов получателей*/
+def mailSend(String subject, String body, String receipents){
+    SMTPMailServer mailServer = ComponentAccessor.getMailServerManager().getDefaultSMTPMailServer();
+    if (mailServer) {
+    Email email = new Email(receipents);
+    email.setSubject(subject);
+    email.setBody(body);
+    email.setMimeType("text/html")
+    ClassLoader threadClassLoader = Thread.currentThread().getContextClassLoader()
+    Thread.currentThread().setContextClassLoader(SMTPMailServer.class.classLoader)
+    mailServer.send(email)
+    Thread.currentThread().setContextClassLoader(threadClassLoader)
+    } 
+    else {
+        log.info "problem with sending email" // Problem getting the mail server from JIRA configuration, log this error
+    }
+}
+
+/*функция для вычисления времени решения по заявке, получает код заявки и поле с названием решения (L2 или L3)*/
 def getTimeResolution(Issue issue, CustomField time_resolution){
     try {
         def sum_time = 0
         DurationFormatUtils df = new DurationFormatUtils()
         issue.getCustomFieldValue(time_resolution).getCompleteSLAData().each { sum_time += it.getElapsedTime() }
+        //log.info "DEBUG " + issue.key + " " + time_resolution + " " + sum_time
         return sum_time
     } 
     catch (Exception e) {
         return "Ошибка расчета данных"
     }
 }
-
+/*функция для вычисления времени решения по проектной команде, получает название проектной команды и поле с названием решения (L2 или L3)*/
 def getTimeResolutionByProjectTeam(String project_team, CustomField time_resolution){
     try {
         def sum_time = 0
         Map result_list = [:]
         DurationFormatUtils df = new DurationFormatUtils()
         project_team = project_team.replaceAll('"', '\\\\"')
-        log.info "project team = " + project_team
         if (project_team != "empty"){
             query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\"")
         }
         else{
             query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty")
         }
-        log.info query.getQueryString()
+        //log.info query.getQueryString()
         def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
-        log.info "Total count issues by ${project_team} = ${results.total}"
+        //log.info "Total count issues by ${project_team} = ${results.total}"
         for (Issue issue: results.getResults()){
             issue.getCustomFieldValue(time_resolution).getCompleteSLAData().each { sum_time += it.getElapsedTime() }
         }
@@ -155,28 +165,31 @@ def getTimeResolutionByProjectTeam(String project_team, CustomField time_resolut
     }
 }
 
+/*функция для вычисления количества решенных заявок указанным исполнителем, принимает логин исполнителя, и названия статусов из какого статуса и в какой, к примеру для вычисления
+количества заявок решенных на L2 конкретным исполнителем, без передачи на L3*/
 def getCountResolvedIssuesByAssignee(String assignee, String fromStatusName, String toStatusName){
     query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee}")
-    log.info query.getQueryString()
+    //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
 
-    log.info ("total not resolved issues ${results.total}")
+    //log.info ("total not resolved issues ${results.total}")
     return results.total
 }
 
+/*функция для вычисления количества решенных заявок по проеткной команде, принимает название проектной команды*/
 def getCountResolvedIssuesByProjectTeams(String project_team){
     project_team = project_team.replaceAll('"', '\\\\"')
-    log.info "project team = " + project_team
+    //log.info "project team = " + project_team
     if (project_team != "empty"){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\"")
     }
     else{
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty")
     }
-    log.info query.getQueryString()
+    //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
 
-    log.info ("total not resolved issues ${results.total}")
+    //log.info ("total not resolved issues ${results.total}")
     return results.total
 }
 
@@ -185,8 +198,9 @@ def getCountResolvedIssuesByProjectTeams(String project_team){
 log.info getTimeResolution(issue, time_resolved_l3)
 */
 
+/*Цикл для перебора заявок решенных на L2 и формирования списка исполнителей, решавших данные заявки*/
 for (Issue l2issue: line2_resolved){
-    log.info "\n \t \t \t \t \t \t \t loop L2 - ${l2issue.key}"
+    //log.info "\n \t \t \t \t \t \t \t loop L2 - ${l2issue.key}"
     tmp = getTimeResolution(l2issue, time_resolved_l2)
     common_duration_l2 << tmp
     if (l2issue?.assignee){
@@ -195,6 +209,7 @@ for (Issue l2issue: line2_resolved){
     }
 }
 
+/*Цикл для перебора уникального списка исполнителей из пред.этапа, подсчета решенных им задач и формирования справочника в формате исполнитель:кол-во задач*/
 for (f in assignee_list.unique()){
     //log.info "assignee = " + f
     def count = getCountResolvedIssuesByAssignee(f.toString(), "2 линия", "Решен")
@@ -202,10 +217,11 @@ for (f in assignee_list.unique()){
     def assignee_displayName = ComponentAccessor.userManager.getUserByName(f.toString())
     result_map_assignee_issues.putAt(assignee_displayName.getDisplayName(), count.toString())
 }
+//log.info "result_map_assignee_issues = " + result_map_assignee_issues
 
-log.info "result_map_assignee_issues = " + result_map_assignee_issues
+/*Цикл для перебора заявок решенных на L3 и формирования списка проектных команд, подавших данные заявки*/
 for (Issue l3issue: line3_resolved){
-    log.info "\n \t \t \t \t \t \t \t loop L3 - ${l3issue.key}"
+    //log.info "\n \t \t \t \t \t \t \t loop L3 - ${l3issue.key}"
     tmp = getTimeResolution(l3issue, time_resolved_l3)
     common_duration_l3 << tmp
     if (l3issue?.getCustomFieldValue(cf_project_teams)){
@@ -216,6 +232,7 @@ for (Issue l3issue: line3_resolved){
     }
 }
 
+/*Цикл для перебора уникального списка проектных команд из пред.этапа, подсчета их задач и формирования справочника в формате проект.команда:кол-во задач*/
 for (f in project_teams_list.unique()){
     def count = 0
     if (f != "empty"){
@@ -227,14 +244,17 @@ for (f in project_teams_list.unique()){
         result_map_project_teams_issues.putAt("Проектная команда не указана", count)
     }
 }
+//log.info "result_map_project_teams_issues = " + result_map_project_teams_issues
 
-log.info "result_map_project_teams_issues = " + result_map_project_teams_issues
+/*Вычисление общей суммы по времени решения на Л2 и Л3 */
 def common_duration_l2_sum = common_duration_l2.sum()
 def common_duration_l3_sum = common_duration_l3.sum()
 
+/*Преобразование сумм по времени в читаемый формат*/
 def result_duration_l2 = df.formatDuration(common_duration_l2_sum?.toLong(), 'HH:mm:ss', true)
 def result_duration_l3 = df.formatDuration(common_duration_l3_sum?.toLong(), 'HH:mm:ss', true)
 
+/*Формирование тела письма*/
 def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
            <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC\" crossorigin=\"anonymous\">
             <style>
@@ -297,7 +317,6 @@ def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
                 <td><b>Количество</b></td>
             </tr>"""
             for (f in result_map_assignee_issues){
-                log.info "map value = " + f.getKey() + f.getValue()
             body += """<tr>
                 <td>${f.getKey()}</td>
                 <td>${f.getValue()}</td>
@@ -321,7 +340,6 @@ def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
                 <td><b>Время решения</b></td>
             </tr>"""
             for (f in result_map_project_teams_issues){
-                log.info "map value = " + f.getKey() + f.getValue()
             body += """<tr>
                 <td>${f.getKey()}</td>
                 <td>${f.getValue()}</td>
@@ -331,5 +349,5 @@ def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
             body += """</tbody>
             </table>
            """
-
+/*Вызов функции по отправке почты*/
 mailSend("Test report", body, "e.chistyakov@p-s.kz")
