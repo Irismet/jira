@@ -31,8 +31,8 @@ import groovy.transform.Field
     @Field def query //переменная - строка с JQL запросом
 
     /*********************Даты для выгрузки за указанный период************************/
-    @Field def start_date = "2023-10-01" //дата начала, задается в формате yyyy-MM-dd
-    @Field def end_date = "2023-10-09"  //дата окончания, задается в формате yyyy-MM-dd
+    @Field def start_date = "" //дата начала, задается в формате yyyy-MM-dd
+    @Field def end_date = ""  //дата окончания, задается в формате yyyy-MM-dd
     /**********************************************************************************/
     log.info start_date
     log.info end_date
@@ -74,7 +74,7 @@ public ArrayList<Issue> selectTotalIssues(){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and created >= ${start_date} and created <= ${end_date}")
     }
     else {
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\"")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and created >= startOfWeek(-1) and created <= endOfWeek(-1)")
     }
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
     //log.info ("total all issues ${results.total}")
@@ -91,13 +91,13 @@ public ArrayList<Issue> selectLineResolvedIssues(String lineNumber){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status was not in (\"3 линия\") and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else if (lineNumber == "2" && (start_date == "" && end_date == "")){
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status was not in \"3 линия\" and status = Решен")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status was not in \"3 линия\" and status = Решен and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
         }
     else if (lineNumber == "3" && (start_date != "" && end_date != "")){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else if (lineNumber == "3" && (start_date == "" && end_date == "")){
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
     }
     else {
         throw new Exception("Передан неверный параметр, ожидалось 2 или 3")
@@ -119,7 +119,7 @@ public ArrayList<Issue> selectLineNonResolvedIssues(String lineNumber){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\" and created >= ${start_date} and created <= ${end_date}")
     }
     else {
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\"")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\" and created >= startOfWeek(-1) and created <= endOfWeek(-1)")
     }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -173,10 +173,10 @@ def getTimeResolutionByProjectTeam(String project_team, CustomField time_resolut
             query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
         }
         else if (project_team != "empty" && start_date == "" && end_date == ""){
-            query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\"")
+            query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
         }
         else{
-            query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty")
+            query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
         }
         //log.info query.getQueryString()
         def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -198,7 +198,7 @@ def getCountResolvedIssuesByAssignee(String assignee, String fromStatusName, Str
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else {
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee}")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
     }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -215,10 +215,10 @@ def getCountResolvedIssuesByProjectTeams(String project_team){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else if (project_team != "empty" && start_date == "" && end_date == ""){
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\"")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
     }
     else{
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
     }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
