@@ -23,13 +23,19 @@ import groovy.time.*
 import org.apache.commons.lang3.time.DurationFormatUtils as DurationFormatUtils
 import groovy.transform.Field
 
-/*Объявление общих глобальных переменных*/
+/*Объявление общих глобальных переменных, которые многокрантно используются в функциях*/
     @Field def jqlQueryParser = ComponentAccessor.getComponent(JqlQueryParser) //для JQL запросов
     @Field def searchProvider = ComponentAccessor.getComponent(SearchService.class) //для вызова поиска по JQL запросу 
     @Field def issueManager = ComponentAccessor.getIssueManager() //для получения объекта заявки
     @Field def user = ComponentAccessor.userManager.getUserByName("jiradmin") //для получения пользователя с правами на просмотр всех заявок
     @Field def query //переменная - строка с JQL запросом
 
+    /*********************Даты для выгрузки за указанный период************************/
+    @Field def start_date = "2023-10-01" //дата начала, задается в формате yyyy-MM-dd
+    @Field def end_date = "2023-10-09"  //дата окончания, задается в формате yyyy-MM-dd
+    /**********************************************************************************/
+    log.info start_date
+    log.info end_date
 /*Объявление переменных*/
 def totalIssues = selectTotalIssues()
 def line2_inprogress = selectLineNonResolvedIssues("2")
@@ -45,6 +51,7 @@ def index_wait_support
 def index_l2
 def index_l3
 def tmp
+def body
 ArrayList assignee_list = []
 ArrayList project_teams_list = []
 Map result_map_assignee_issues = [:]
@@ -63,7 +70,12 @@ def cf_project_teams = ComponentAccessor.getCustomFieldManager().getCustomFieldO
 /*функция для отбора общего количества задач с типом - DevOps as Service*/
 public ArrayList<Issue> selectTotalIssues(){
     ArrayList<Issue> totalIssueList = new ArrayList()
-    query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\"")
+    if (start_date != "" && end_date != ""){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and created >= ${start_date} and created <= ${end_date}")
+    }
+    else {
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\"")
+    }
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
     //log.info ("total all issues ${results.total}")
     for (Issue reqIssue: results.getResults()){
@@ -75,16 +87,22 @@ public ArrayList<Issue> selectTotalIssues(){
 /*функция для отбора общего количества решенных задач на указанной линии поддержки, с типом - DevOps as Service. Принимает номер линии поддержки - 2 или 3*/
 public ArrayList<Issue> selectLineResolvedIssues(String lineNumber){
     ArrayList<Issue> issueList = new ArrayList()
-    if (lineNumber == "2"){
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status was not in \"3 линия\" and status = Решен")
+    if (lineNumber == "2" && (start_date != "" && end_date != "")){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status was not in (\"3 линия\") and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
     }
-    else if (lineNumber == "3"){
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status = Решен")
+    else if (lineNumber == "2" && (start_date == "" && end_date == "")){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status was not in \"3 линия\" and status = Решен")
+        }
+    else if (lineNumber == "3" && (start_date != "" && end_date != "")){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
+    }
+    else if (lineNumber == "3" && (start_date == "" && end_date == "")){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен")
     }
     else {
         throw new Exception("Передан неверный параметр, ожидалось 2 или 3")
     }
-    //log.info query.getQueryString()
+    log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
 
     //log.info ("total L${lineNumber} issues ${results.total}")
@@ -97,7 +115,12 @@ public ArrayList<Issue> selectLineResolvedIssues(String lineNumber){
 /*функция для отбора общего количества нерешенных задач на указанной линии поддержки, с типом - DevOps as Service. Принимает номер линии поддержки - 2 или 3*/
 public ArrayList<Issue> selectLineNonResolvedIssues(String lineNumber){
     ArrayList<Issue> issueList = new ArrayList()
-    query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\"")
+    if (start_date != "" && end_date != ""){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\" and created >= ${start_date} and created <= ${end_date}")
+    }
+    else {
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\"")
+    }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
 
@@ -146,7 +169,10 @@ def getTimeResolutionByProjectTeam(String project_team, CustomField time_resolut
         Map result_list = [:]
         DurationFormatUtils df = new DurationFormatUtils()
         project_team = project_team.replaceAll('"', '\\\\"')
-        if (project_team != "empty"){
+        if (project_team != "empty" && start_date != "" && end_date != ""){
+            query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
+        }
+        else if (project_team != "empty" && start_date == "" && end_date == ""){
             query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\"")
         }
         else{
@@ -168,7 +194,12 @@ def getTimeResolutionByProjectTeam(String project_team, CustomField time_resolut
 /*функция для вычисления количества решенных заявок указанным исполнителем, принимает логин исполнителя, и названия статусов из какого статуса и в какой, к примеру для вычисления
 количества заявок решенных на L2 конкретным исполнителем, без передачи на L3*/
 def getCountResolvedIssuesByAssignee(String assignee, String fromStatusName, String toStatusName){
-    query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee}")
+    if (start_date != "" && end_date != ""){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= ${start_date} and resolved <= ${end_date}")
+    }
+    else {
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee}")
+    }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
 
@@ -180,7 +211,10 @@ def getCountResolvedIssuesByAssignee(String assignee, String fromStatusName, Str
 def getCountResolvedIssuesByProjectTeams(String project_team){
     project_team = project_team.replaceAll('"', '\\\\"')
     //log.info "project team = " + project_team
-    if (project_team != "empty"){
+    if (project_team != "empty" && start_date != "" && end_date != ""){
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
+    }
+    else if (project_team != "empty" && start_date == "" && end_date == ""){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\"")
     }
     else{
@@ -255,8 +289,10 @@ def result_duration_l2 = df.formatDuration(common_duration_l2_sum?.toLong(), 'HH
 def result_duration_l3 = df.formatDuration(common_duration_l3_sum?.toLong(), 'HH:mm:ss', true)
 
 /*Формирование тела письма*/
-def body = """<h2>Отчет по услуге DevOps as Service</h2></br>
-           <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC\" crossorigin=\"anonymous\">
+if (start_date != "" && end_date != "")
+    body = "<h2>Отчет по услуге DevOps as Service за период с ${start_date} по ${end_date}.</h2></br>"
+else body = "<h2>Отчет по услуге DevOps as Service за прошедшую неделю.</h2></br>"
+        body += """<link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC\" crossorigin=\"anonymous\">
             <style>
             /* Стили таблицы (IKSWEB) */
             table.iksweb{text-decoration: none;border-collapse:collapse;width:100%;text-align:center;}
