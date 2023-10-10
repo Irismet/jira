@@ -20,8 +20,10 @@ import com.sun.mail.imap.*
 import com.sun.mail.smtp.*
 import com.sun.mail.pop3.*
 import groovy.time.*
+import java.time.*
 import org.apache.commons.lang3.time.DurationFormatUtils as DurationFormatUtils
 import groovy.transform.Field
+
 
 /*Объявление общих глобальных переменных, которые многокрантно используются в функциях*/
     @Field def jqlQueryParser = ComponentAccessor.getComponent(JqlQueryParser) //для JQL запросов
@@ -52,6 +54,16 @@ def index_l2
 def index_l3
 def tmp
 def body
+def sla_time_reaction_status
+def sla_time_reaction
+def common_duration_l2_sum 
+def common_duration_l3_sum
+def result_duration_l2
+def result_duration_l3
+def common_duration_l2_by_issue
+def common_duration_l3_by_issue
+def result_l2
+def result_l3
 ArrayList assignee_list = []
 ArrayList project_teams_list = []
 Map result_map_assignee_issues = [:]
@@ -65,7 +77,11 @@ def common_duration_l3 = []
 //def time_resolved_l2 = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("DevOps as Service. Время решения")
 def time_resolved_l2 = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("DevOps as Service. Время решения L2")
 def time_resolved_l3 = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("DevOps as Service. Время решения L3")
+def cf_time_reaction = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("Время до первого отклика")
 def cf_project_teams = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("Проектная команда")
+def month_map = [1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель", 5: "Май", 6: "Июнь", 7: "Июль", 8: "Август", 9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"]
+def current_month = LocalDate.now().monthValue
+def current_month_value = month_map[current_month]
 
 /*функция для отбора общего количества задач с типом - DevOps as Service*/
 public ArrayList<Issue> selectTotalIssues(){
@@ -74,7 +90,7 @@ public ArrayList<Issue> selectTotalIssues(){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and created >= ${start_date} and created <= ${end_date}")
     }
     else {
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and created >= startOfWeek(-1) and created <= endOfWeek(-1)")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and created >= startOfMonth() and created <= endOfMonth()")
     }
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
     //log.info ("total all issues ${results.total}")
@@ -91,13 +107,13 @@ public ArrayList<Issue> selectLineResolvedIssues(String lineNumber){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status was not in (\"3 линия\") and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else if (lineNumber == "2" && (start_date == "" && end_date == "")){
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status was not in \"3 линия\" and status = Решен and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status was not in \"3 линия\" and status = Решен and resolved >= startOfMonth() and resolved <= endOfMonth()")
         }
     else if (lineNumber == "3" && (start_date != "" && end_date != "")){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else if (lineNumber == "3" && (start_date == "" && end_date == "")){
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= startOfMonth() and resolved <= endOfMonth()")
     }
     else {
         throw new Exception("Передан неверный параметр, ожидалось 2 или 3")
@@ -119,7 +135,7 @@ public ArrayList<Issue> selectLineNonResolvedIssues(String lineNumber){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\" and created >= ${start_date} and created <= ${end_date}")
     }
     else {
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\" and created >= startOfWeek(-1) and created <= endOfWeek(-1)")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status = \"${lineNumber} линия\" and created >= startOfMonth() and created <= endOfMonth()")
     }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -173,10 +189,10 @@ def getTimeResolutionByProjectTeam(String project_team, CustomField time_resolut
             query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
         }
         else if (project_team != "empty" && start_date == "" && end_date == ""){
-            query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
+            query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfMonth() and resolved <= endOfMonth()")
         }
         else{
-            query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
+            query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfMonth() and resolved <= endOfMonth()")
         }
         //log.info query.getQueryString()
         def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -198,7 +214,7 @@ def getCountResolvedIssuesByAssignee(String assignee, String fromStatusName, Str
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else {
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= startOfMonth() and resolved <= endOfMonth()")
     }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -215,10 +231,10 @@ def getCountResolvedIssuesByProjectTeams(String project_team){
         query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else if (project_team != "empty" && start_date == "" && end_date == ""){
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfMonth() and resolved <= endOfMonth()")
     }
     else{
-        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfWeek(-1) and resolved <= endOfWeek(-1)")
+        query = jqlQueryParser.parseQuery("project = PCLOUD and issuetype = \"Запрос проектной команды (DevOps as Service)\" and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfMonth() and resolved <= endOfMonth()")
     }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -281,17 +297,17 @@ for (f in project_teams_list.unique()){
 //log.info "result_map_project_teams_issues = " + result_map_project_teams_issues
 
 /*Вычисление общей суммы по времени решения на Л2 и Л3 */
-def common_duration_l2_sum = common_duration_l2.sum()
-def common_duration_l3_sum = common_duration_l3.sum()
+common_duration_l2_sum = common_duration_l2.sum()
+common_duration_l3_sum = common_duration_l3.sum()
 
 /*Преобразование сумм по времени в читаемый формат*/
-def result_duration_l2 = df.formatDuration(common_duration_l2_sum?.toLong(), 'HH:mm:ss', true)
-def result_duration_l3 = df.formatDuration(common_duration_l3_sum?.toLong(), 'HH:mm:ss', true)
+result_duration_l2 = df.formatDuration(common_duration_l2_sum?.toLong(), 'HH:mm:ss', true)
+result_duration_l3 = df.formatDuration(common_duration_l3_sum?.toLong(), 'HH:mm:ss', true)
 
 /*Формирование тела письма*/
 if (start_date != "" && end_date != "")
     body = "<h2>Отчет по услуге DevOps as Service за период с ${start_date} по ${end_date}.</h2></br>"
-else body = "<h2>Отчет по услуге DevOps as Service за прошедшую неделю.</h2></br>"
+else body = "<h2>Отчет по услуге DevOps as Service за ${current_month_value} месяц.</h2></br>"
         body += """<link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC\" crossorigin=\"anonymous\">
             <style>
             /* Стили таблицы (IKSWEB) */
@@ -385,5 +401,70 @@ else body = "<h2>Отчет по услуге DevOps as Service за проше�
             body += """</tbody>
             </table>
            """
+            body += """<table class=\"iksweb\">
+            <thead>
+            <tr>
+                <th colspan=\"12\">Детальная информация по услуге Devops as a Service.</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td><b>Код задачи</b></td>
+                <td><b>Тема</b></td>
+                <td><b>Приоритет</b></td>
+                <td><b>Статус</b></td>
+                <td><b>Дата создания</b></td>
+                <td><b>Автор заявки</b></td>
+                <td><b>Проектная команда</b></td>
+                <td><b>Исполнитель</b></td>
+                <td><b>Время L2</b></td>
+                <td><b>Время L3</b></td>
+                <td><b>Статус SLA</b></td>
+                <td><b>Время реакции</b></td>
+            </tr>"""
+            for (f in totalIssues){
+            common_duration_l2_by_issue = getTimeResolution(f, time_resolved_l2)
+            common_duration_l3_by_issue = getTimeResolution(f, time_resolved_l3)
+            
+            result_l2 = df.formatDuration(common_duration_l2_by_issue?.toLong(), 'HH:mm:ss', true)
+            result_l3 = df.formatDuration(common_duration_l3_by_issue?.toLong(), 'HH:mm:ss', true)
+            log.info f.getKey()
+            log.info f?.getCustomFieldValue(cf_time_reaction)?.getCompleteSLAData().size()
+            
+            if (f?.getCustomFieldValue(cf_time_reaction)?.getCompleteSLAData().size() > 0){
+                log.info f?.getCustomFieldValue(cf_time_reaction)?.getCompleteSLAData().size()
+                if(f?.getCustomFieldValue(cf_time_reaction)?.getCompleteSLAData()?.last()?.isSucceeded()) 
+                    sla_time_reaction_status = "Достигнуто"
+                else {
+                    sla_time_reaction_status = "Не достигнуто"
+                }
+            
+            sla_time_reaction = f?.getCustomFieldValue(cf_time_reaction)?.getCompleteSLAData()?.last()?.getElapsedTime()
+            sla_time_reaction = df.formatDuration(sla_time_reaction?.toLong(), 'HH:mm:ss', true)
+            }
+            else {
+                sla_time_reaction_status = "Не определено"
+                sla_time_reaction = "Не определено"
+            }
+
+            body += """<tr>
+                <td>${f.key}</td>
+                <td>${f.summary}</td>
+                <td>${f.priority.name}</td>
+                <td>${f.status.name}</td>
+                <td>${f.created.format("dd-MM-yyyy HH:MM:SS")}</td>
+                <td>${f.reporter.displayName}</td>
+                <td>${f.getCustomFieldValue(cf_project_teams)}</td>
+                <td>${f.assignee.displayName}</td>
+                <td>${result_l2}</td>
+                <td>${result_l3}</td>
+                <td>${sla_time_reaction_status}</td>
+                <td>${sla_time_reaction}</td>
+                
+            </tr>"""
+            }
+            body += """</tbody>
+            </table>
+           """
 /*Вызов функции по отправке почты*/
-mailSend("Test report", body, "e.chistyakov@p-s.kz")
+mailSend("Отчет по услуге DevOps As Service за ${current_month_value} месяц", body, "e.chistyakov@p-s.kz, k.beshirova@p-s.kz, s.karakhanov@p-s.kz, I.chistyakov@p-s.kz")
