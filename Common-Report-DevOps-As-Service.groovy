@@ -406,7 +406,7 @@ else body = "<h2>Отчет по услуге DevOps as Service за ${current_m
             </tr>"""
             }
             body += """</tbody>
-            </table>
+            </table></br>
            """
             body += """<table class=\"iksweb\">
             <thead>
