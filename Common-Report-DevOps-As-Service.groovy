@@ -80,6 +80,7 @@ def time_resolved_l3 = ComponentAccessor.getCustomFieldManager().getCustomFieldO
 def cf_time_reaction = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("Время до первого отклика")
 def cf_project_teams = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("Проектная команда")
 def month_map = [1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель", 5: "Май", 6: "Июнь", 7: "Июль", 8: "Август", 9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"]
+def priority_map = ["Low": "Низкий", "Medium":"Средний", "Critical":"Критический"]
 def current_month = LocalDate.now().monthValue
 def current_month_value = month_map[current_month]
 
@@ -301,8 +302,14 @@ common_duration_l2_sum = common_duration_l2.sum()
 common_duration_l3_sum = common_duration_l3.sum()
 
 /*Преобразование сумм по времени в читаемый формат*/
-result_duration_l2 = df.formatDuration(common_duration_l2_sum?.toLong(), 'HH:mm:ss', true)
-result_duration_l3 = df.formatDuration(common_duration_l3_sum?.toLong(), 'HH:mm:ss', true)
+if (common_duration_l2_sum != null)
+    result_duration_l2 = df.formatDuration(common_duration_l2_sum?.toLong(), 'HH:mm:ss', true)
+else 
+    result_duration_l2 = df.formatDuration(0, 'HH:mm:ss', true)
+if (common_duration_l3_sum != null)
+    result_duration_l3 = df.formatDuration(common_duration_l3_sum?.toLong(), 'HH:mm:ss', true)
+else
+    result_duration_l3 = df.formatDuration(0, 'HH:mm:ss', true)
 
 /*Формирование тела письма*/
 if (start_date != "" && end_date != "")
@@ -450,12 +457,12 @@ else body = "<h2>Отчет по услуге DevOps as Service за ${current_m
             body += """<tr>
                 <td>${f.key}</td>
                 <td>${f.summary}</td>
-                <td>${f.priority.name}</td>
+                <td>${f.priority.getNameTranslation()}</td>
                 <td>${f.status.name}</td>
                 <td>${f.created.format("dd-MM-yyyy HH:MM:SS")}</td>
                 <td>${f.reporter.displayName}</td>
-                <td>${f.getCustomFieldValue(cf_project_teams)}</td>
                 <td>${f.assignee.displayName}</td>
+                <td>${f.getCustomFieldValue(cf_project_teams)}</td>
                 <td>${result_l2}</td>
                 <td>${result_l3}</td>
                 <td>${sla_time_reaction_status}</td>
