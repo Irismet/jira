@@ -80,6 +80,7 @@ def time_resolved_l3 = ComponentAccessor.getCustomFieldManager().getCustomFieldO
 def cf_time_reaction = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("Время до первого отклика")
 def cf_project_teams = ComponentAccessor.getCustomFieldManager().getCustomFieldObjectByName("Проектная команда")
 def month_map = [1: "Январь", 2: "Февраль", 3: "Март", 4: "Апрель", 5: "Май", 6: "Июнь", 7: "Июль", 8: "Август", 9: "Сентябрь", 10: "Октябрь", 11: "Ноябрь", 12: "Декабрь"]
+def priority_map = ["Low": "Низкий", "Medium":"Средний", "Critical":"Критический"]
 def current_month = LocalDate.now().monthValue
 def current_month_value = month_map[current_month]
 
@@ -421,8 +422,8 @@ else body = "<h2>Отчет по услуге DevOps as Service за ${current_m
                 <td><b>Статус</b></td>
                 <td><b>Дата создания</b></td>
                 <td><b>Автор заявки</b></td>
-                <td><b>Проектная команда</b></td>
                 <td><b>Исполнитель</b></td>
+                <td><b>Проектная команда</b></td>
                 <td><b>Время L2</b></td>
                 <td><b>Время L3</b></td>
                 <td><b>Статус SLA</b></td>
