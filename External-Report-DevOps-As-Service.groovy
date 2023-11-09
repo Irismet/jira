@@ -38,6 +38,13 @@ import groovy.transform.Field
     /**********************************************************************************/
     log.info start_date
     log.info end_date
+
+    def sd = Date.parse("yyyy-MM-dd", start_date)
+    def ed = Date.parse("yyyy-MM-dd", end_date)
+    ed = ed + 1
+    start_date = sd?.format("yyyy-MM-dd").toString()
+    end_date = ed?.format("yyyy-MM-dd").toString()
+    
 /*Объявление переменных*/
 def totalIssues = selectTotalIssues()
 def line2_inprogress = selectLineNonResolvedIssues("2")
@@ -54,6 +61,7 @@ def index_l2
 def index_l3
 def tmp
 def body
+def summary
 def sla_time_reaction_status
 def sla_time_reaction
 def common_duration_l2_sum 
@@ -88,10 +96,10 @@ def current_month_value = month_map[current_month]
 public ArrayList<Issue> selectTotalIssues(){
     ArrayList<Issue> totalIssueList = new ArrayList()
     if (start_date != "" && end_date != ""){
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and created >= ${start_date} and created <= ${end_date}")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and created >= ${start_date} and created <= ${end_date}")
     }
     else {
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and created >= startOfMonth() and created <= endOfMonth()")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and created >= startOfMonth() and created <= endOfMonth()")
     }
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
     //log.info ("total all issues ${results.total}")
@@ -105,16 +113,16 @@ public ArrayList<Issue> selectTotalIssues(){
 public ArrayList<Issue> selectLineResolvedIssues(String lineNumber){
     ArrayList<Issue> issueList = new ArrayList()
     if (lineNumber == "2" && (start_date != "" && end_date != "")){
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status was not in (\"3 линия\") and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed FROM \"${lineNumber} линия\" to \"Решен\" and status was not in (\"3 линия\") and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else if (lineNumber == "2" && (start_date == "" && end_date == "")){
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status was not in \"3 линия\" and status = Решен and resolved >= startOfMonth() and resolved <= endOfMonth()")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status was not in \"3 линия\" and status = Решен and resolved >= startOfMonth() and resolved <= endOfMonth()")
         }
     else if (lineNumber == "3" && (start_date != "" && end_date != "")){
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else if (lineNumber == "3" && (start_date == "" && end_date == "")){
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= startOfMonth() and resolved <= endOfMonth()")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed FROM (\"${lineNumber} линия\") to \"Решен\" and status = Решен and resolved >= startOfMonth() and resolved <= endOfMonth()")
     }
     else {
         throw new Exception("Передан неверный параметр, ожидалось 2 или 3")
@@ -133,10 +141,10 @@ public ArrayList<Issue> selectLineResolvedIssues(String lineNumber){
 public ArrayList<Issue> selectLineNonResolvedIssues(String lineNumber){
     ArrayList<Issue> issueList = new ArrayList()
     if (start_date != "" && end_date != ""){
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status = \"${lineNumber} линия\" and created >= ${start_date} and created <= ${end_date}")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status = \"${lineNumber} линия\" and created >= ${start_date} and created <= ${end_date}")
     }
     else {
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status = \"${lineNumber} линия\" and created >= startOfMonth() and created <= endOfMonth()")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status = \"${lineNumber} линия\" and created >= startOfMonth() and created <= endOfMonth()")
     }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -187,13 +195,13 @@ def getTimeResolutionByProjectTeam(String project_team, CustomField time_resolut
         DurationFormatUtils df = new DurationFormatUtils()
         project_team = project_team.replaceAll('"', '\\\\"')
         if (project_team != "empty" && start_date != "" && end_date != ""){
-            query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
+            query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
         }
         else if (project_team != "empty" && start_date == "" && end_date == ""){
-            query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfMonth() and resolved <= endOfMonth()")
+            query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfMonth() and resolved <= endOfMonth()")
         }
         else{
-            query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfMonth() and resolved <= endOfMonth()")
+            query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfMonth() and resolved <= endOfMonth()")
         }
         //log.info query.getQueryString()
         def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -212,10 +220,10 @@ def getTimeResolutionByProjectTeam(String project_team, CustomField time_resolut
 количества заявок решенных на L2 конкретным исполнителем, без передачи на L3*/
 def getCountResolvedIssuesByAssignee(String assignee, String fromStatusName, String toStatusName){
     if (start_date != "" && end_date != ""){
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= ${start_date} and resolved <= ${end_date}")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else {
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= startOfMonth() and resolved <= endOfMonth()")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed from \"${fromStatusName}\" to \"${toStatusName}\" and status was not in (\"3 линия\") and status = \"Решен\" and assignee = ${assignee} and resolved >= startOfMonth() and resolved <= endOfMonth()")
     }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -229,13 +237,13 @@ def getCountResolvedIssuesByProjectTeams(String project_team){
     project_team = project_team.replaceAll('"', '\\\\"')
     //log.info "project team = " + project_team
     if (project_team != "empty" && start_date != "" && end_date != ""){
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= ${start_date} and resolved <= ${end_date}")
     }
     else if (project_team != "empty" && start_date == "" && end_date == ""){
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfMonth() and resolved <= endOfMonth()")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" = \"${project_team}\" and resolved >= startOfMonth() and resolved <= endOfMonth()")
     }
     else{
-        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"DevOps as Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfMonth() and resolved <= endOfMonth()")
+        query = jqlQueryParser.parseQuery("project = DASOUT and issuetype in (\"Запрос проектной команды (DevOps as Service)\", \"Devops as a Service\") and status changed from \"3 линия\" to \"Решен\" and status = \"Решен\" and \"Проектная команда\" is empty and resolved >= startOfMonth() and resolved <= endOfMonth()")
     }
     //log.info query.getQueryString()
     def results = searchProvider.search(user, query, PagerFilter.getUnlimitedFilter())
@@ -312,9 +320,14 @@ else
     result_duration_l3 = df.formatDuration(0, 'HH:mm:ss', true)
 
 /*Формирование тела письма*/
-if (start_date != "" && end_date != "")
+if (start_date != "" && end_date != ""){
     body = "<h2>Отчет по услуге DevOps as Service для внешних клиентов за период с ${start_date} по ${end_date}.</h2></br>"
-else body = "<h2>Отчет по услуге DevOps as Service для внешних клиентов за ${current_month_value} месяц.</h2></br>"
+    summary = "Отчет по услуге DevOps as Service для внешних клиентов за период с ${start_date} по ${end_date}."
+}
+else { 
+    body = "<h2>Отчет по услуге DevOps as Service для внешних клиентов за ${current_month_value} месяц.</h2></br>"
+    summary = "Отчет по услуге DevOps as Service для внешних клиентов за ${current_month_value} месяц."
+}
         body += """<link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css\" rel=\"stylesheet\" integrity=\"sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC\" crossorigin=\"anonymous\">
             <style>
             /* Стили таблицы (IKSWEB) */
@@ -472,4 +485,4 @@ else body = "<h2>Отчет по услуге DevOps as Service для внеш�
             </table>
            """
 /*Вызов функции по отправке почты*/
-//mailSend("Отчет по услуге DevOps As Service для внешних клиентов за ${current_month_value} месяц", body, "e.chistyakov@p-s.kz, s.karakhanov@p-s.kz, I.chistyakov@p-s.kz")
+mailSend(summary, body, "e.chistyakov@p-s.kz, s.karakhanov@p-s.kz, I.chistyakov@p-s.kz")
