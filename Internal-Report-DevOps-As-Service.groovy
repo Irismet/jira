@@ -40,13 +40,14 @@ import groovy.transform.Field
     /**********************************************************************************/
     log.info start_date
     log.info end_date
-
-    def sd = Date.parse("yyyy-MM-dd", start_date)
-    def ed = Date.parse("yyyy-MM-dd", end_date)
-    ed = ed + 1
-    start_date = sd?.format("yyyy-MM-dd").toString()
-    end_date = ed?.format("yyyy-MM-dd").toString()
-
+	
+	if (start_date != "" && end_date != ""){
+		def sd = Date.parse("yyyy-MM-dd", start_date)
+		def ed = Date.parse("yyyy-MM-dd", end_date)
+		ed = ed + 1
+		start_date = sd?.format("yyyy-MM-dd").toString()
+		end_date = ed?.format("yyyy-MM-dd").toString()
+	}
 /*Объявление переменных*/
 def totalIssues = selectTotalIssues()
 def line2_inprogress = selectLineNonResolvedIssues("2")
@@ -490,4 +491,3 @@ else {
            """
 /*Вызов функции по отправке почты*/
 mailSend(summary, body, "e.chistyakov@p-s.kz, k.beshirova@p-s.kz, s.karakhanov@p-s.kz, I.chistyakov@p-s.kz")
-//mailSend(summary, body, "e.chistyakov@p-s.kz")
